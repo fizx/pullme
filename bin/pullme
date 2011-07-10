@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require "rubygems"
+require "json"
 require "highline"
 require 'highline/import'
 require 'net/http'
@@ -41,6 +42,7 @@ data = {
   "pull[title]" => title,
   "pull[body]" => desc
 }
+puts data.inspect
 
 http = Net::HTTP.new(url.host, 443)
 http.use_ssl = true
@@ -50,4 +52,14 @@ req.basic_auth ENV["GITHUB_USER"], ENV["GITHUB_PASS"]
 req.set_form_data(data)
 res = http.start {|http| http.request(req) }
 
-puts res.body
+
+
+status = res.code.to_i
+
+if (200..399).include?(status)
+  hash = JSON.parse(res.body)
+  system "open https://github.com/#{to_user}/#{project}/pull/#{hash["pull"]["number"]}/files"
+else
+  puts res.body
+end
+  
