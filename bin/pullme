@@ -1,0 +1,53 @@
+#!/usr/bin/env ruby
+
+require "rubygems"
+require "highline"
+require 'highline/import'
+require 'net/http'
+require 'net/https'
+require 'uri'
+
+abort "No GITHUB_USER in your env" unless ENV["GITHUB_USER"]
+abort "No GITHUB_PASS in your env" unless ENV["GITHUB_PASS"]
+
+data = `git remote show origin`
+url = data[/Push\s+URL: (.*)/, 1]
+user = url[/:(.*)\//, 1]
+project = url[/\/(.*)\.git/, 1]
+
+branch = `git branch`[/\* (.*)/, 1]
+
+default_from = "#{user}:#{branch}"
+from = ask "From [#{default_from}]: "
+from = default_from if from.empty?
+
+default_to = "#{user}:master"
+to = ask "To [#{default_to}]: "
+to = default_to if to.empty?
+
+from_user, from_branch = from.split(":")
+to_user, to_branch = to.split(":")
+
+title = ask "Title: "
+desc  = ask "Description: "
+
+ask "Press enter to submit!"
+
+url = URI.parse("https://github.com/api/v2/json/pulls/#{to_user}/#{project}")
+
+data = {
+  "pull[base]" => to,
+  "pull[head]" => from,
+  "pull[title]" => title,
+  "pull[body]" => desc
+}
+
+http = Net::HTTP.new(url.host, 443)
+http.use_ssl = true
+
+req = Net::HTTP::Post.new(url.path)
+req.basic_auth ENV["GITHUB_USER"], ENV["GITHUB_PASS"]
+req.set_form_data(data)
+res = http.start {|http| http.request(req) }
+
+puts res.body
